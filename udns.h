@@ -23,9 +23,9 @@
 
 #ifndef UDNS_VERSION	/* include guard */
 
-#define UDNS_VERSION "0.4"
+#define UDNS_VERSION "0.6"
 
-#ifdef __MINGW32__
+#ifdef WINDOWS
 # ifdef UDNS_DYNAMIC_LIBRARY
 #  ifdef DNS_LIBRARY_BUILD
 #   define UDNS_API __declspec(dllexport)
@@ -221,7 +221,7 @@ UDNS_API unsigned
 dns_dntop_size(dnscc_t *dn);
 
 /* either wrappers or reimplementations for inet_ntop() and inet_pton() */
-UDNS_API const char *dns_ntop(int af, const void *src, char *dst, int size);
+UDNS_API const char *dns_ntop(int af, const void *src, char *dst, unsigned size);
 UDNS_API int dns_pton(int af, const char *src, void *dst);
 
 /**************************************************************************/
