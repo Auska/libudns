@@ -24,14 +24,14 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#ifdef __MINGW32__
+#ifdef WINDOWS
 # include <winsock2.h>          /* includes <windows.h> */
 # include <iphlpapi.h>		/* for dns server addresses etc */
 #else
 # include <sys/types.h>
 # include <unistd.h>
 # include <fcntl.h>
-#endif	/* !__MINGW32__ */
+#endif	/* !WINDOWS */
 
 #include <stdlib.h>
 #include <string.h>
@@ -53,9 +53,7 @@ static void dns_set_srch_internal(struct dns_ctx *ctx, char *srch) {
     dns_add_srch(ctx, srch);
 }
 
-#ifdef __MINGW32__
-
-#define NO_IPHLPAPI
+#ifdef WINDOWS
 
 #ifndef NO_IPHLPAPI
 /* Apparently, some systems does not have proper headers for IPHLPAIP to work.
@@ -141,7 +139,7 @@ static int dns_initns_registry(struct dns_ctx *ctx) {
   return 0;
 }
 
-#else /* !__MINGW32__ */
+#else /* !WINDOWS */
 
 static int dns_init_resolvconf(struct dns_ctx *ctx) {
   char *v;
@@ -203,7 +201,7 @@ static int dns_init_resolvconf(struct dns_ctx *ctx) {
     dns_set_opts(ctx, v);
 
   /* if still no search list, use local domain name */
-  if (has_srch &&
+  if (!has_srch &&
       gethostname(buf, sizeof(buf) - 1) == 0 &&
       (v = strchr(buf, '.')) != NULL &&
       *++v != '\0')
@@ -212,19 +210,19 @@ static int dns_init_resolvconf(struct dns_ctx *ctx) {
   return 0;
 }
 
-#endif /* !__MINGW32__ */
+#endif /* !WINDOWS */
 
 int dns_init(struct dns_ctx *ctx, int do_open) {
   if (!ctx)
     ctx = &dns_defctx;
   dns_reset(ctx);
 
-#ifdef __MINGW32__
+#ifdef WINDOWS
   if (dns_initns_iphlpapi(ctx) != 0)
     dns_initns_registry(ctx);
-  /*XXX __MINGW32__: probably good to get default domain and search list too...
+  /*XXX WINDOWS: probably good to get default domain and search list too...
    * And options.  Something is in registry. */
-  /*XXX __MINGW32__: maybe environment variables are also useful? */
+  /*XXX WINDOWS: maybe environment variables are also useful? */
 #else
   dns_init_resolvconf(ctx);
 #endif

@@ -46,6 +46,12 @@ struct in_addr;
 # undef inet_XtoX_no_ntop
 # undef inet_XtoX_no_pton
 
+#else /* !TEST */
+
+struct in_addr {	/* declare it here to avoid messing with headers */
+  unsigned char x[4];
+};
+
 #endif /* TEST */
 
 #endif /* inet_XtoX_prototypes */
@@ -54,7 +60,7 @@ struct in_addr;
 # define inet_XtoX_prefix inet_
 #endif
 #ifndef inet_XtoX_decl
-# define inet_XtoX_decl /* empty */
+# define inet_XtoX_decl /*empty*/
 #endif
 
 #define cc2_(x,y) cc2__(x,y)
@@ -64,7 +70,7 @@ struct in_addr;
 #ifndef inet_XtoX_no_ntop
 
 inet_XtoX_decl const char *
-fn(ntop)(int af, const void *src, char *dst, int size);
+fn(ntop)(int af, const void *src, char *dst, unsigned size);
 
 #ifndef inet_XtoX_prototypes
 
@@ -141,7 +147,7 @@ static int mjt_ntop6(const void *_src, char *dst, int size) {
 }
 
 inet_XtoX_decl const char *
-fn(ntop)(int af, const void *src, char *dst, int size) {
+fn(ntop)(int af, const void *src, char *dst, unsigned size) {
   switch(af) {
   /* don't use AF_*: don't mess with headers */
   case 2:  /* AF_INET */  if (mjt_ntop4(src, dst, size)) return dst; break;

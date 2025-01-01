@@ -24,7 +24,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#ifdef __MINGW32__
+#ifdef WINDOWS
 #include <windows.h>
 #include <winsock2.h>
 #else
@@ -301,7 +301,7 @@ printrr(const struct dns_parse *p, struct dns_rr *rr) {
       if (verbose > 0) putchar('"');
       c = printtxt(c);
       if (verbose > 0) putchar('"');
-    }
+    } 
     printf(" %s.", dns_dntosp(dn));
     break;
 
@@ -414,6 +414,7 @@ dbgcb(int code, const struct sockaddr *sa, unsigned slen,
   struct dns_parse p;
   const unsigned char *cur, *end;
   int numqd;
+  (void)unused_q; (void)unused_data; /* avoid compiler warning */
 
   if (code > 0)	{
     printf(";; trying %s.\n", dns_dntosp(dns_payload(pkt)));
@@ -492,7 +493,8 @@ dbgcb(int code, const struct sockaddr *sa, unsigned slen,
   p.dnsp_cur = p.dnsp_ans = cur;
   p.dnsp_end = end;
   p.dnsp_qdn = NULL;
-  p.dnsp_qcls = p.dnsp_qtyp = 0;
+  p.dnsp_qcls = 0;
+  p.dnsp_qtyp = 0;
   p.dnsp_ttl = 0xffffffffu;
   p.dnsp_nrr = 0;
 
@@ -519,7 +521,8 @@ static void dnscb(struct dns_ctx *ctx, void *result, void *data) {
   pkt = result; end = pkt + r; cur = dns_payload(pkt);
   dns_getdn(pkt, &cur, end, dn, sizeof(dn));
   dns_initparse(&p, NULL, pkt, cur, end);
-  p.dnsp_qcls = p.dnsp_qtyp = 0;
+  p.dnsp_qcls = 0;
+  p.dnsp_qtyp = 0;
   nrr = 0;
   while((r = dns_nextrr(&p, &rr)) > 0) {
     if (!dns_dnequal(dn, rr.dnsrr_dn)) continue;
@@ -636,7 +639,7 @@ int main(int argc, char **argv) {
 " -h - print this help and exit\n"
 " -v - be more verbose\n"
 " -q - be less verbose\n"
-" -t type - set query type (A, AAA, PTR etc)\n"
+" -t type - set query type (A, AAAA, PTR etc)\n"
 " -c class - set query class (IN (default), CH, HS, *)\n"
 " -a - equivalent to -t ANY -v\n"
 " -n ns - use given nameserver(s) instead of default\n"

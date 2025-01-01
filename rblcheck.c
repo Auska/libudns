@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __MINGW32__
+#ifdef WINDOWS
 # include <winsock2.h>
 #else
 # include <unistd.h>
@@ -44,7 +44,7 @@
 # include "getopt.c"
 #endif
 
-static const char *version = "udns-rblcheck 0.4";
+static const char *version = "udns-rblcheck " UDNS_VERSION;
 static char *progname;
 
 static void error(int die, const char *fmt, ...) {
@@ -296,6 +296,7 @@ int main(int argc, char **argv) {
     ++zgiven;
     if (addzonefile(optarg)) break;
     error(1, "unable to read zonefile `%s'", optarg);
+    break; /* avoid warning */
   case 'c': ++zgiven; nzones = 0; break;
   case 'q': --verbose; break;
   case 'v': ++verbose; break;

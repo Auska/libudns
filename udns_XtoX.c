@@ -1,5 +1,5 @@
 /* udns_XtoX.c
-   udns_ntop() and udns_pton() routines, which are either
+   dns_ntop() and dns_pton() routines, which are either
      - wrappers for inet_ntop() and inet_pton() or
      - reimplementations of those routines.
 
@@ -28,13 +28,13 @@
 #endif
 #include "udns.h"
 
-#if HAVE_DECL_INET_NTOP == 1
+#ifdef HAVE_INET_PTON_NTOP
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-const char *dns_ntop(int af, const void *src, char *dst, int size) {
+const char *dns_ntop(int af, const void *src, char *dst, unsigned size) {
   return inet_ntop(af, src, dst, size);
 }
 
@@ -43,13 +43,6 @@ int dns_pton(int af, const char *src, void *dst) {
 }
 
 #else
-
-#include <winsock2.h>          /* includes <windows.h> */
-#include <ws2tcpip.h>          /* needed for struct in6_addr */
-
-#ifndef EAFNOSUPPORT
-#define EAFNOSUPPORT    WSAEAFNOSUPPORT
-#endif
 
 #define inet_XtoX_prefix dns_
 #include "inet_XtoX.c"

@@ -24,7 +24,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
-#ifdef __MINGW32__
+#ifdef WINDOWS
 # include <winsock2.h>          /* includes <windows.h> */
 # include <ws2tcpip.h>          /* needed for struct in6_addr */
 #else
@@ -45,7 +45,7 @@
 #  include <sys/times.h>
 # endif
 # define closesocket(sock) close(sock)
-#endif	/* !__MINGW32__ */
+#endif	/* !WINDOWS */
 
 #include <stdlib.h>
 #include <string.h>
@@ -126,14 +126,12 @@ qlist_insert_after(struct dns_qlist *list,
     qlist_add_head(list, q);
 }
 
-struct sockaddr_ns {
-  union {
-    struct sockaddr sa;
-    struct sockaddr_in sin;
+union sockaddr_ns {
+  struct sockaddr sa;
+  struct sockaddr_in sin;
 #ifdef HAVE_IPv6
-    struct sockaddr_in6 sin6;
+  struct sockaddr_in6 sin6;
 #endif
-  };
 };
 
 #define sin_eq(a,b) \
@@ -152,7 +150,7 @@ struct dns_ctx {		/* resolver context */
   unsigned dnsc_port;			/* default port (DNS_PORT) */
   unsigned dnsc_udpbuf;			/* size of UDP buffer */
   /* array of nameserver addresses */
-  struct sockaddr_ns dnsc_serv[DNS_MAXSERV];
+  union sockaddr_ns dnsc_serv[DNS_MAXSERV];
   unsigned dnsc_nserv;			/* number of nameservers */
   unsigned dnsc_salen;			/* length of socket addresses */
   dnsc_t dnsc_srchbuf[1024];		/* buffer for searchlist */
@@ -232,7 +230,7 @@ enum {
 };
 
 int dns_add_serv(struct dns_ctx *ctx, const char *serv) {
-  struct sockaddr_ns *sns;
+  union sockaddr_ns *sns;
   SETCTXFRESH(ctx);
   if (!serv)
     return (ctx->dnsc_nserv = 0);
@@ -394,7 +392,7 @@ dns_set_tmcbck(struct dns_ctx *ctx, dns_utm_fn *fn, void *data) {
 }
 
 static unsigned dns_nonrandom_32(void) {
-#ifdef __MINGW32__
+#ifdef WINDOWS
   FILETIME ft;
   GetSystemTimeAsFileTime(&ft);
   return ft.dwLowDateTime;
@@ -485,7 +483,7 @@ int dns_open(struct dns_ctx *ctx) {
   int sock;
   unsigned i;
   int port;
-  struct sockaddr_ns *sns;
+  union sockaddr_ns *sns;
 #ifdef HAVE_IPv6
   unsigned have_inet6 = 0;
 #endif
@@ -553,7 +551,7 @@ int dns_open(struct dns_ctx *ctx) {
     ctx->dnsc_qstatus = DNS_E_TEMPFAIL;
     return -1;
   }
-#ifdef __MINGW32__
+#ifdef WINDOWS
   { unsigned long on = 1;
     if (ioctlsocket(sock, FIONBIO, &on) == SOCKET_ERROR) {
       closesocket(sock);
@@ -561,14 +559,14 @@ int dns_open(struct dns_ctx *ctx) {
       return -1;
     }
   }
-#else	/* !__MINGW32__ */
+#else	/* !WINDOWS */
   if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK) < 0 ||
       fcntl(sock, F_SETFD, FD_CLOEXEC) < 0) {
     closesocket(sock);
     ctx->dnsc_qstatus = DNS_E_TEMPFAIL;
     return -1;
   }
-#endif	/* __MINGW32__ */
+#endif	/* WINDOWS */
   /* allocate the packet buffer */
   if ((ctx->dnsc_pbuf = malloc(ctx->dnsc_udpbuf)) == NULL) {
     closesocket(sock);
@@ -816,7 +814,7 @@ dns_send_this(struct dns_ctx *ctx, struct dns_query *q,
     return -1;
   }
   DNS_DBGQ(ctx, q, 1,
-           &ctx->dnsc_serv[servi].sa, sizeof(struct sockaddr_ns),
+           &ctx->dnsc_serv[servi].sa, sizeof(union sockaddr_ns),
            ctx->dnsc_pbuf, qlen);
   q->dnsq_servwait |= 1 << servi;	/* expect reply from this ns */
 
@@ -867,9 +865,10 @@ dns_send(struct dns_ctx *ctx, struct dns_query *q, time_t now) {
   dns_send_this(ctx, q, q->dnsq_servi++, now);
 }
 
-static void dns_dummy_cb(struct dns_ctx *ctx, void *result, void *data) {
+static void
+dns_dummy_cb(struct dns_ctx *unused_ctx, void *result, void *unused_data) {
   if (result) free(result);
-  data = ctx = 0;	/* used */
+  (void)unused_ctx; (void)unused_data; /* avoid warning */
 }
 
 /* The (only, main, real) query submission routine.
@@ -967,7 +966,7 @@ void dns_ioevent(struct dns_ctx *ctx, time_t now) {
   dnsc_t *pbuf;
   dnscc_t *pend, *pcur;
   void *result;
-  struct sockaddr_ns sns;
+  union sockaddr_ns sns;
   socklen_t slen;
 
   SETCTX(ctx);
@@ -993,7 +992,7 @@ again: /* receive the reply */
      * or remote.  On local errors, we should stop, while
      * remote errors should be ignored (for now anyway).
      */
-#ifdef __MINGW32__
+#ifdef WINDOWS
     if (WSAGetLastError() == WSAEWOULDBLOCK)
 #else
     if (errno == EAGAIN)
@@ -1260,8 +1259,8 @@ void *dns_resolve(struct dns_ctx *ctx, struct dns_query *q) {
 
   assert(ctx == q->dnsq_ctx);
   dns_assert_ctx(ctx);
-  /* do not allow re-resolving syncronous queries */
-  assert(q->dnsq_cbck != dns_resolve_cb && "can't resolve syncronous query");
+  /* do not allow re-resolving synchronous queries */
+  assert(q->dnsq_cbck != dns_resolve_cb && "can't resolve synchronous query");
   if (q->dnsq_cbck == dns_resolve_cb) {
     ctx->dnsc_qstatus = DNS_E_BADQUERY;
     return NULL;
@@ -1313,8 +1312,8 @@ int dns_cancel(struct dns_ctx *ctx, struct dns_query *q) {
   SETCTX(ctx);
   dns_assert_ctx(ctx);
   assert(q->dnsq_ctx == ctx);
-  /* do not allow cancelling syncronous queries */
-  assert(q->dnsq_cbck != dns_resolve_cb && "can't cancel syncronous query");
+  /* do not allow cancelling synchronous queries */
+  assert(q->dnsq_cbck != dns_resolve_cb && "can't cancel synchronous query");
   if (q->dnsq_cbck == dns_resolve_cb)
     return (ctx->dnsc_qstatus = DNS_E_BADQUERY);
   qlist_remove(&ctx->dnsc_qactive, q);
